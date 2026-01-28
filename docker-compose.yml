@@ -3,7 +3,7 @@ services:
     restart: always
     build:
       context: .
-      dockerfile: docker/python/Dockerfile
+      dockerfile: docker/Dockerfile
     container_name: ${ENV}_app
     labels:
       - "traefik.enable=true"
