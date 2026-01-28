@@ -1,0 +1,91 @@
+name: Deploy QR Reader
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    env:
+      HOST: ${{ secrets.VPS_HOST }}
+      USER: ${{ secrets.VPS_USER }}
+      SSH_PORT: 55050
+      PASSWORD: ${{ secrets.VPS_PASSWORD }}
+
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v3
+
+      - name: Definir variáveis fixas de produção
+        id: vars
+        shell: bash
+        run: |
+          echo "env=qrreader" >> "$GITHUB_OUTPUT"
+          echo "env_url=vps.bigworks.com.br" >> "$GITHUB_OUTPUT"
+
+      - name: Limpar pasta temporária
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ env.HOST }}
+          username: ${{ env.USER }}
+          password: ${{ env.PASSWORD }}
+          script: |
+            rm -rf ~/${{ steps.vars.outputs.env }}_build || true
+
+      - name: Copiar arquivos para VPS (build)
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          debug: true
+          host: ${{ env.HOST }}
+          username: ${{ env.USER }}
+          password: ${{ env.PASSWORD }}
+          source: "."
+          target: "~/${{ steps.vars.outputs.env }}_build"
+
+      - name: Build dos containers
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ env.HOST }}
+          username: ${{ env.USER }}
+          password: ${{ env.PASSWORD }}
+          script: |
+            cd ~/${{ steps.vars.outputs.env }}_build
+            ENV=${{ steps.vars.outputs.env }} ENV_URL=${{ steps.vars.outputs.env_url }} docker compose build
+
+      - name: Subir temporário para validar
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ env.HOST }}
+          username: ${{ env.USER }}
+          password: ${{ env.PASSWORD }}
+          script: |
+            cd ~/${{ steps.vars.outputs.env }}_build
+            ENV=${{ steps.vars.outputs.env }} ENV_URL=${{ steps.vars.outputs.env_url }} docker compose up -d
+            sleep 5
+            ENV=${{ steps.vars.outputs.env }} ENV_URL=${{ steps.vars.outputs.env_url }} docker compose down
+
+      - name: Trocar pasta oficial
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ env.HOST }}
+          username: ${{ env.USER }}
+          password: ${{ env.PASSWORD }}
+          script: |
+            if [ -d ~/${{ steps.vars.outputs.env }} ]; then
+              ENV=${{ steps.vars.outputs.env }} ENV_URL=${{ steps.vars.outputs.env_url }} docker compose down || true
+              rm -rf ~/${{ steps.vars.outputs.env }}
+            fi
+            mv ~/${{ steps.vars.outputs.env }}_build ~/${{ steps.vars.outputs.env }}
+
+      - name: Subir containers finais
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ env.HOST }}
+          username: ${{ env.USER }}
+          password: ${{ env.PASSWORD }}
+          script: |
+            cd ~/${{ steps.vars.outputs.env }}
+            ENV=${{ steps.vars.outputs.env }} ENV_URL=${{ steps.vars.outputs.env_url }} docker compose up -d --force-recreate
