@@ -7,7 +7,7 @@ on:
 
 # Impede dois deploys rodarem juntos
 concurrency:
-  group: qrreader-production
+  group: qr-reader-production
   cancel-in-progress: true
 
 jobs:
@@ -28,7 +28,7 @@ jobs:
         id: vars
         shell: bash
         run: |
-          echo "env=qrreader" >> "$GITHUB_OUTPUT"
+          echo "env=qr-reader" >> "$GITHUB_OUTPUT"
           echo "env_url=vps.bigworks.com.br" >> "$GITHUB_OUTPUT"
           echo "run_id=${GITHUB_RUN_ID}" >> "$GITHUB_OUTPUT"
 
