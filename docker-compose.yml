@@ -1,0 +1,19 @@
+services:
+  app:
+    restart: always
+    build:
+      context: .
+      dockerfile: docker/python/Dockerfile
+    container_name: ${ENV}_app
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.${ENV}_qrreader.rule=Host(`qr-reader.${ENV_URL}`)"
+      - "traefik.http.routers.${ENV}_qrreader.entrypoints=websecure"
+      - "traefik.http.routers.${ENV}_qrreader.tls.certresolver=letsencrypt"
+      - "traefik.http.services.${ENV}_qrreader.loadbalancer.server.port=8000"
+    networks:
+      - traefik
+
+networks:
+  traefik:
+    external: true
